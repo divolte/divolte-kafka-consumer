@@ -1,0 +1,100 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'findbugs'
+apply plugin: 'pmd'
+apply plugin: 'jacoco'
+apply plugin: 'maven'
+
+defaultTasks 'clean', 'build'
+
+version = '0.1-SNAPSHOT'
+
+sourceCompatibility = 1.7
+compileJava.options.encoding = 'UTF-8'
+
+configure(install.repositories.mavenInstaller) {
+    pom.project {
+        groupId 'io.divolte'
+        artifactId 'divolte-kafka-consumer'
+        inceptionYear '2014'
+        packaging 'jar'
+        licenses {
+            license {
+                name 'Apache License, Version 2.0'
+                url 'http://www.apache.org/licenses/LICENSE-2.0.html'
+                distribution 'repo'
+            }
+        }
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+task sourcesJar(type: Jar, dependsOn:classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn:javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+gradle.taskGraph.whenReady { taskGraph ->
+    if (!taskGraph.hasTask(':release')) {
+        version = version + '-SNAPSHOT'
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:deprecation"
+}
+
+
+dependencies {
+    compile group: 'com.google.guava', name: 'guava', version: '17.0'
+    compile group: 'org.apache.avro', name: 'avro', version: '1.7.7'
+    compile group: 'org.apache.kafka', name:'kafka_2.10', version: '0.8.1.1'
+//    compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.0'
+
+    // We use the SLF4J API. At runtime, this is LogBack.
+    // (We also force any dependencies that use Log4J to go via SLF4J.)
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.7'
+    runtime group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.2'
+    runtime group: 'org.slf4j', name: 'log4j-over-slf4j', version: '1.7.7'
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: '1.3'
+    testCompile group: 'org.mockito', name: 'mockito-all', version: '1.9.5'
+}
+
+configurations {
+    // Exclude all traces of Log4J via transitive dependencies.
+    // (At runtime these are redirected over SLF4J.)
+    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    all*.exclude group: 'log4j', module: 'log4j'
+}
+
+findbugs {
+    toolVersion = "3.0.0"
+}
+
+pmd {
+    toolVersion = "5.1.3"
+}
+
+jacoco {
+    toolVersion = "0.7.1.201405082137"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.1'
+}
