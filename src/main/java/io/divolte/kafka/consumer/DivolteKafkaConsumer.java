@@ -82,10 +82,13 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         for(final KafkaStream<byte[], byte[]> stream : consumer.createMessageStreams(threadsPerTopicMap).get(topic)) {
             final BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(new byte[0], null);
             final SpecificDatumReader<T> reader = new SpecificDatumReader<>(schema);
-
             scheduleReader(stream, decoder, reader);
-            throw new RuntimeException("Wasn't done yet!");
         }
+    }
+
+    public void shutdownConsumer() {
+        consumer.shutdown();
+        executorService.shutdown();
     }
 
     private void scheduleReader(final KafkaStream<byte[], byte[]> stream, final BinaryDecoder decoder, final SpecificDatumReader<T> reader) {
@@ -104,8 +107,11 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
                 } catch(Exception e) {
                     logger.warn("Exception in event handler. Re-scheduling.", e);
                     scheduleReader(stream, decoder, reader);
-                } finally {
+                }
+                try {
                     handler.shutdown();
+                } catch(Exception e) {
+                    logger.warn("Exception in event handler shutdown.", e);
                 }
             }
         });
@@ -120,9 +126,9 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         Properties props = new Properties();
         props.put("zookeeper.connect", zookeeper);
         props.put("group.id", groupId);
-        props.put("zookeeper.session.timeout.ms", zookeeperSessionTimeoutMs);
-        props.put("zookeeper.sync.time.ms", zookeeperSyncTimeMs);
-        props.put("auto.commit.interval.ms", autoCommitIntervalMs);
+        props.put("zookeeper.session.timeout.ms", Long.toString(zookeeperSessionTimeoutMs));
+        props.put("zookeeper.sync.time.ms", Long.toString(zookeeperSyncTimeMs));
+        props.put("auto.commit.interval.ms", Long.toString(autoCommitIntervalMs));
         return new ConsumerConfig(props);
     }
 
@@ -141,6 +147,6 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
     public interface EventHandler<T> {
         public void handle(T event) throws Exception;
         public void setup() throws Exception;
-        public void shutdown();
+        public void shutdown() throws Exception;
     }
 }
