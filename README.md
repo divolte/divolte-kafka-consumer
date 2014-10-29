@@ -1,7 +1,7 @@
 Divolte Kafka Consumer
 ======================
 
-Helper class for writing Kafka consumers that process events created by [Divolte Collector](https://github.com/divolte/divolte-collector). Divolte Collector captures click stream data and translates events into Avro records that can be published on Kafka topics. The contents of these messages are the raw bytes produced by serializing the Avro records to bytes. This class allows to create consumers for these events in Java in a typesafe manner.
+Helper library for writing Kafka consumers that process events created by [Divolte Collector](https://github.com/divolte/divolte-collector). Divolte Collector captures click stream data and translates events into Avro records which are published on Kafka topics. The contents of these messages are the raw bytes produced by serializing the Avro records. This library allows to create consumers for these events in Java in a typesafe manner with minimal boilerplate.
 
 To use the consumer, you need to generate Java code from your Avro schema. See [divolte-examples/avro-schema](https://github.com/divolte/divolte-examples/tree/master/avro-schema) for an example of a project that uses Maven to build a jar with generated code from a schema.
 
@@ -79,6 +79,8 @@ public class ConsumerExample {
     }
 }
 ```
+
+For a more complete usage example, have a look at [divolte-examples/tcp-kafka-consumer](https://github.com/divolte/divolte-examples/tree/master/tcp-kafka-consumer).
 
 ## Build form source
 We use [Gradle](http://www.gradle.org/) as a build tool. You need Java 7 or higher to build.
