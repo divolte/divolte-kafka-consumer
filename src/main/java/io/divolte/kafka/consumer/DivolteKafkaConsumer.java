@@ -23,6 +23,32 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+/**
+ * Helper class for consuming messages from Kafka queues that are serialized
+ * using Avro with a known schema; requires Avro's generated Java code for the
+ * schema.
+ * <p>
+ * This class implements a Kafka consumer using the high level consumer API as
+ * described <a href=
+ * "https://cwiki.apache.org/confluence/display/KAFKA/Consumer+Group+Example"
+ * >here</a>. Kafka has the notion of consumer groups. Messages will be balanced
+ * across all consumer thread in the same consumer group. This class creates one
+ * or more consumer threads, which will each receive a portion of the total
+ * message stream. If multiple consumer instances are started with the same
+ * consumer group ID, messages will be distributed over these instances; these
+ * instances do not have to reside within the same JVM or on the same physical
+ * machine. When a consumer instance dies or shuts down, Kafka will rebalance
+ * the distribution of messages over the remaining instances.
+ * <p>
+ * Clients of this class provide the consumer with an {@link EventHandler}
+ * instance, which handles individual messages. This class takes care of
+ * deserializing the raw messages into Avro specific records, implemented in the
+ * generated code.
+ *
+ * @param <T>
+ *            The class that was generated from the Avro schema used for
+ *            serialization.
+ */
 public final class DivolteKafkaConsumer<T extends SpecificRecord> {
     private final static Logger logger = LoggerFactory.getLogger(DivolteKafkaConsumer.class);
 
@@ -38,6 +64,48 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
     private final Supplier<EventHandler<T>> handlerSupplier;
     private final Schema schema;
 
+    /**
+     * Create a consumer with one or more consumer threads that consumes
+     * messages from a Kafka topic and belongs to a specific consumer group. A
+     * consumer thread uses a supplied {@link EventHandler} to handle the
+     * messages after deserialization. The {@link EventHandler} is supplied to
+     * the consumer through a {@link Supplier} instance passed to this
+     * constructor. This way, the consumer can create one {@link EventHandler}
+     * instance per consumer thread, so clients do not have to create
+     * {@link EventHandler}'s that are thread safe. The provided
+     * {@link Supplier#get()} will be called at least once per created thread,
+     * but can be called more often in case of uncaught exceptions in
+     * {@link EventHandler}'s. When an {@link EventHandler} throws a uncaught
+     * exception, it will be discarded (after {@link EventHandler#shutdown()}
+     * has been called) and a new instance will be requested.
+     *
+     * @param topic
+     *            Kafka topic to consume.
+     * @param zookeeper
+     *            Zookeeper connect string (e.g.
+     *            "host1:2181,host2:2181,host3:2181")
+     * @param groupId
+     *            Kafka consumer group ID.
+     * @param numThreads
+     *            Number of consumer threads to create for this consumer.
+     * @param handlerSupplier
+     *            A {@link Supplier} of {@link EventHandler} instances.
+     * @param schema
+     *            The Avro {@link Schema} to be used for deserializing raw
+     *            messages.
+     * @param zookeeperSessionTimeoutMs
+     *            The zookeeper session timeout used by the client; this is used
+     *            for the 'zookeeper.session.timeout.ms' property in the Kafka
+     *            client configuration.
+     * @param zookeeperSyncTimeMs
+     *            The zookeeper sync time used by the client; this is used for
+     *            the 'zookeeper.sync.time.ms' property in the Kafka client
+     *            configuration.
+     * @param autoCommitIntervalMs
+     *            The zookeeper auto commit interval used by the client; this is
+     *            used for the 'auto.commit.interval.ms' property in the Kafka
+     *            client configuration.
+     */
     @SuppressWarnings("PMD.AvoidThreadGroup")
     public DivolteKafkaConsumer(
             final String topic,
@@ -67,6 +135,29 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         this.executorService = Executors.newFixedThreadPool(numThreads, factory);
     }
 
+    /**
+     * Construct a new {@link DivolteKafkaConsumer} by supplying the following
+     * defaults to
+     * {@link DivolteKafkaConsumer#DivolteKafkaConsumer(String, String, String, int, Supplier, Schema, long, long, long)}
+     * : {@link DivolteKafkaConsumer#DEFAULT_ZOOKEEPER_SESSION_TIMEOUT},
+     * {@link DivolteKafkaConsumer#DEFAULT_ZOOKEEPER_SYNC_TIMEOUT},
+     * {@link DivolteKafkaConsumer#DEFAULT_AUTO_COMMIT_INTERVAL}
+     *
+     * @param topic
+     *            Kafka topic to consume.
+     * @param zookeeper
+     *            Zookeeper connect string (e.g.
+     *            "host1:2181,host2:2181,host3:2181")
+     * @param groupId
+     *            Kafka consumer group ID.
+     * @param numThreads
+     *            Number of consumer threads to create for this consumer.
+     * @param handlerSupplier
+     *            A {@link Supplier} of {@link EventHandler} instances.
+     * @param schema
+     *            The Avro {@link Schema} to be used for deserializing raw
+     *            messages.
+     */
     public DivolteKafkaConsumer(
             final String topic,
             final String zookeeper,
@@ -77,6 +168,10 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         this(topic, zookeeper, groupId, numThreads, handlerSupplier, schema, DEFAULT_ZOOKEEPER_SESSION_TIMEOUT, DEFAULT_ZOOKEEPER_SYNC_TIMEOUT, DEFAULT_AUTO_COMMIT_INTERVAL);
     }
 
+    /**
+     * Starts the consumer threads. Each consumer thread will request a
+     * {@link EventHandler} from the provided {@link Supplier}.
+     */
     public void startConsumer() {
         ImmutableMap<String, Integer> threadsPerTopicMap = ImmutableMap.of(Objects.requireNonNull(topic), numThreads);
         for(final KafkaStream<byte[], byte[]> stream : consumer.createMessageStreams(threadsPerTopicMap).get(topic)) {
@@ -86,6 +181,9 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         }
     }
 
+    /**
+     * Shutdown the consumer and subsequently, all consumer threads.
+     */
     public void shutdownConsumer() {
         consumer.shutdown();
         executorService.shutdown();
@@ -144,9 +242,43 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         .build();
     }
 
+    /**
+     * Handler for deserialized messages arriving on a Kafka queue. Apart from
+     * the {@link EventHandler#handle(Object)} method, this interface has two
+     * lifecycle methods. {@link EventHandler#setup()} is called by the consumer
+     * thread prior to passing any events to the event handler.
+     * {@link EventHandler#handle(Object)} for each received message on a given
+     * thread. Finally, {@link EventHandler#shutdown()} is called to allow the
+     * event handler to clean up any resources associated with it.
+     * <p>
+     * In case either {@link EventHandler#setup()} or
+     * {@link EventHandler#handle(Object)} throw any uncaught exception, the
+     * consumer thread will discard this event handler instance (after
+     * attempting to call {@link EventHandler#shutdown()}) and request a new
+     * instance from the provided {@link Supplier}. This retry mechanism is
+     * infinite.
+     *
+     * @param <T>
+     *            The class that was generated from the Avro schema used for
+     *            serialization.
+     */
     public interface EventHandler<T> {
+        /**
+         * Handle a single incoming message.
+         * @param event The deserialized Avro data.
+         * @throws Exception In case of failure.
+         */
         public void handle(T event) throws Exception;
+
+        /**
+         * Setup this event handler.
+         * @throws Exception In case of failure.
+         */
         public void setup() throws Exception;
+        /**
+         * Shutdown this event handler.
+         * @throws Exception In case of failure.
+         */
         public void shutdown() throws Exception;
     }
 }
