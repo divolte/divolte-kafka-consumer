@@ -82,7 +82,7 @@ public class ConsumerExample {
 
 For a more complete usage example, have a look at [divolte-examples/tcp-kafka-consumer](https://github.com/divolte/divolte-examples/tree/master/tcp-kafka-consumer).
 
-## Build form source
+## Build from source
 We use [Gradle](http://www.gradle.org/) as a build tool. You need Java 7 or higher to build.
 
 To build from source on your machine:
