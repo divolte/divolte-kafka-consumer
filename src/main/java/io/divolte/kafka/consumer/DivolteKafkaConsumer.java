@@ -449,7 +449,7 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
      * is useful for consumers that do not need any setup or teardown associated
      * with event handlers. More over, this allows consumers written in Java 8 to
      * implement event handlers using lambda syntax.
-     *
+     * <p>
      * In case {@link EventHandler#handle(Object)} throws any uncaught
      * exception, the consumer thread will discard this event handler instance
      * and request a new instance from the provided {@link Supplier}. This retry
