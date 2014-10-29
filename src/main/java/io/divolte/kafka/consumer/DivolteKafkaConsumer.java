@@ -105,9 +105,207 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
      *            The zookeeper auto commit interval used by the client; this is
      *            used for the 'auto.commit.interval.ms' property in the Kafka
      *            client configuration.
+     * @param <T>
+     *            The class that was generated from the Avro schema used for
+     *            serialization.
+     * @return A new {@link DivolteKafkaConsumer} instance.
+     */
+    public static <T extends SpecificRecord> DivolteKafkaConsumer<T> createConsumer(
+            final String topic,
+            final String zookeeper,
+            final String groupId,
+            final int numThreads,
+            final Supplier<EventHandler<T>> handlerSupplier,
+            final Schema schema,
+            final long zookeeperSessionTimeoutMs,
+            final long zookeeperSyncTimeMs,
+            final long autoCommitIntervalMs) {
+        return new DivolteKafkaConsumer<>(topic, zookeeper, groupId, numThreads, handlerSupplier, schema, zookeeperSessionTimeoutMs, zookeeperSyncTimeMs, autoCommitIntervalMs);
+    }
+
+    /**
+     * Construct a new {@link DivolteKafkaConsumer} by using the following
+     * defaults:
+     * {@link DivolteKafkaConsumer#DEFAULT_ZOOKEEPER_SESSION_TIMEOUT},
+     * {@link DivolteKafkaConsumer#DEFAULT_ZOOKEEPER_SYNC_TIMEOUT},
+     * {@link DivolteKafkaConsumer#DEFAULT_AUTO_COMMIT_INTERVAL}
+     *
+     * @see #createConsumer(String, String, String, int, Supplier, Schema, long, long, long)
+     *
+     * @param topic
+     *            Kafka topic to consume.
+     * @param zookeeper
+     *            Zookeeper connect string (e.g.
+     *            "host1:2181,host2:2181,host3:2181")
+     * @param groupId
+     *            Kafka consumer group ID.
+     * @param numThreads
+     *            Number of consumer threads to create for this consumer.
+     * @param handlerSupplier
+     *            A {@link Supplier} of {@link EventHandler} instances.
+     * @param schema
+     *            The Avro {@link Schema} to be used for deserializing raw
+     *            messages.
+     * @param <T>
+     *            The class that was generated from the Avro schema used for
+     *            serialization.
+     * @return A new {@link DivolteKafkaConsumer} instance.
+     */
+    public static <T extends SpecificRecord> DivolteKafkaConsumer<T> createConsumer(
+            final String topic,
+            final String zookeeper,
+            final String groupId,
+            final int numThreads,
+            final Supplier<EventHandler<T>> handlerSupplier,
+            final Schema schema) {
+        return new DivolteKafkaConsumer<T>(topic, zookeeper, groupId, numThreads, handlerSupplier, schema, DEFAULT_ZOOKEEPER_SESSION_TIMEOUT, DEFAULT_ZOOKEEPER_SYNC_TIMEOUT, DEFAULT_AUTO_COMMIT_INTERVAL);
+    }
+
+    /**
+     * Creates a {@link DivolteKafkaConsumer} using an event handler that
+     * implements {@link SimpleEventHandler}. This event handler interface has
+     * only one single method for handling events and lacks lifecycle management
+     * methods. Specifically, this can be useful for creating event handlers
+     * that require no setup or tear down or if you want to implement event
+     * handlers using Java 8's lambda expressions.
+     *
+     * @see #createConsumer(String, String, String, int, Supplier, Schema)
+     *
+     * @param topic
+     *            Kafka topic to consume.
+     * @param zookeeper
+     *            Zookeeper connect string (e.g.
+     *            "host1:2181,host2:2181,host3:2181")
+     * @param groupId
+     *            Kafka consumer group ID.
+     * @param numThreads
+     *            Number of consumer threads to create for this consumer.
+     * @param handlerSupplier
+     *            A {@link Supplier} of {@link EventHandler} instances.
+     * @param schema
+     *            The Avro {@link Schema} to be used for deserializing raw
+     *            messages.
+     * @param <T>
+     *            The class that was generated from the Avro schema used for
+     *            serialization.
+     * @return A new {@link DivolteKafkaConsumer} instance.
+     */
+    public static <T extends SpecificRecord>DivolteKafkaConsumer<T> createConsumerWithSimpleHandler(
+            final String topic,
+            final String zookeeper,
+            final String groupId,
+            final int numThreads,
+            final Supplier<SimpleEventHandler<T>> handlerSupplier,
+            final Schema schema) {
+        return createConsumer(
+                topic,
+                zookeeper,
+                groupId,
+                numThreads,
+                new Supplier<EventHandler<T>>() {
+                    @Override
+                    public EventHandler<T> get() {
+                        return new SimpleEventHandlerWrapper<T>(handlerSupplier.get());
+                    }
+                },
+                schema);
+    }
+
+    /**
+     * Creates a {@link DivolteKafkaConsumer} using an event handler that
+     * implements {@link SimpleEventHandler}. This event handler interface has
+     * only one single method for handling events and lacks lifecycle management
+     * methods. Specifically, this can be useful for creating event handlers
+     * that require no setup or tear down or if you want to implement event
+     * handlers using Java 8's lambda expressions.
+     *
+     * @see #createConsumer(String, String, String, int, Supplier, Schema)
+     *
+     * @param topic
+     *            Kafka topic to consume.
+     * @param zookeeper
+     *            Zookeeper connect string (e.g.
+     *            "host1:2181,host2:2181,host3:2181")
+     * @param groupId
+     *            Kafka consumer group ID.
+     * @param numThreads
+     *            Number of consumer threads to create for this consumer.
+     * @param handlerSupplier
+     *            A {@link Supplier} of {@link EventHandler} instances.
+     * @param schema
+     *            The Avro {@link Schema} to be used for deserializing raw
+     *            messages.
+     * @param <T>
+     *            The class that was generated from the Avro schema used for
+     *            serialization.
+     * @param zookeeperSessionTimeoutMs
+     *            The zookeeper session timeout used by the client; this is used
+     *            for the 'zookeeper.session.timeout.ms' property in the Kafka
+     *            client configuration.
+     * @param zookeeperSyncTimeMs
+     *            The zookeeper sync time used by the client; this is used for
+     *            the 'zookeeper.sync.time.ms' property in the Kafka client
+     *            configuration.
+     * @param autoCommitIntervalMs
+     *            The zookeeper auto commit interval used by the client; this is
+     *            used for the 'auto.commit.interval.ms' property in the Kafka
+     *            client configuration.
+     * @return A new {@link DivolteKafkaConsumer} instance.
+     */
+    public static <T extends SpecificRecord>DivolteKafkaConsumer<T> createConsumerWithSimpleHandler(
+            final String topic,
+            final String zookeeper,
+            final String groupId,
+            final int numThreads,
+            final Supplier<SimpleEventHandler<T>> handlerSupplier,
+            final Schema schema,
+            final long zookeeperSessionTimeoutMs,
+            final long zookeeperSyncTimeMs,
+            final long autoCommitIntervalMs) {
+        return createConsumer(
+                topic,
+                zookeeper,
+                groupId,
+                numThreads,
+                new Supplier<EventHandler<T>>() {
+                    @Override
+                    public EventHandler<T> get() {
+                        return new SimpleEventHandlerWrapper<T>(handlerSupplier.get());
+                    }
+                },
+                schema,
+                zookeeperSessionTimeoutMs,
+                zookeeperSyncTimeMs,
+                autoCommitIntervalMs);
+    }
+
+    /**
+     * Starts the consumer threads. Each consumer thread will request a
+     * {@link EventHandler} from the provided {@link Supplier}.
+     */
+    public void startConsumer() {
+        ImmutableMap<String, Integer> threadsPerTopicMap = ImmutableMap.of(Objects.requireNonNull(topic), numThreads);
+        for(final KafkaStream<byte[], byte[]> stream : consumer.createMessageStreams(threadsPerTopicMap).get(topic)) {
+            final BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(new byte[0], null);
+            final SpecificDatumReader<T> reader = new SpecificDatumReader<>(schema);
+            scheduleReader(stream, decoder, reader);
+        }
+    }
+
+    /**
+     * Shutdown the consumer and subsequently, all consumer threads.
+     */
+    public void shutdownConsumer() {
+        consumer.shutdown();
+        executorService.shutdown();
+    }
+
+    /*
+     * This class uses factory methods instead of constructors to make a better
+     * distinction between the SimpleEventHandler<T> and the EventHandler<T>.
      */
     @SuppressWarnings("PMD.AvoidThreadGroup")
-    public DivolteKafkaConsumer(
+    private DivolteKafkaConsumer(
             final String topic,
             final String zookeeper,
             final String groupId,
@@ -135,58 +333,22 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
         this.executorService = Executors.newFixedThreadPool(numThreads, factory);
     }
 
-    /**
-     * Construct a new {@link DivolteKafkaConsumer} by supplying the following
-     * defaults to
-     * {@link DivolteKafkaConsumer#DivolteKafkaConsumer(String, String, String, int, Supplier, Schema, long, long, long)}
-     * : {@link DivolteKafkaConsumer#DEFAULT_ZOOKEEPER_SESSION_TIMEOUT},
-     * {@link DivolteKafkaConsumer#DEFAULT_ZOOKEEPER_SYNC_TIMEOUT},
-     * {@link DivolteKafkaConsumer#DEFAULT_AUTO_COMMIT_INTERVAL}
-     *
-     * @param topic
-     *            Kafka topic to consume.
-     * @param zookeeper
-     *            Zookeeper connect string (e.g.
-     *            "host1:2181,host2:2181,host3:2181")
-     * @param groupId
-     *            Kafka consumer group ID.
-     * @param numThreads
-     *            Number of consumer threads to create for this consumer.
-     * @param handlerSupplier
-     *            A {@link Supplier} of {@link EventHandler} instances.
-     * @param schema
-     *            The Avro {@link Schema} to be used for deserializing raw
-     *            messages.
-     */
-    public DivolteKafkaConsumer(
-            final String topic,
-            final String zookeeper,
-            final String groupId,
-            final int numThreads,
-            final Supplier<EventHandler<T>> handlerSupplier,
-            final Schema schema) {
-        this(topic, zookeeper, groupId, numThreads, handlerSupplier, schema, DEFAULT_ZOOKEEPER_SESSION_TIMEOUT, DEFAULT_ZOOKEEPER_SYNC_TIMEOUT, DEFAULT_AUTO_COMMIT_INTERVAL);
-    }
-
-    /**
-     * Starts the consumer threads. Each consumer thread will request a
-     * {@link EventHandler} from the provided {@link Supplier}.
-     */
-    public void startConsumer() {
-        ImmutableMap<String, Integer> threadsPerTopicMap = ImmutableMap.of(Objects.requireNonNull(topic), numThreads);
-        for(final KafkaStream<byte[], byte[]> stream : consumer.createMessageStreams(threadsPerTopicMap).get(topic)) {
-            final BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(new byte[0], null);
-            final SpecificDatumReader<T> reader = new SpecificDatumReader<>(schema);
-            scheduleReader(stream, decoder, reader);
+    private static final class SimpleEventHandlerWrapper<T> implements EventHandler<T> {
+        private final SimpleEventHandler<T> wrapped;
+        SimpleEventHandlerWrapper(final SimpleEventHandler<T> wrapped) {
+            this.wrapped = wrapped;
         }
-    }
 
-    /**
-     * Shutdown the consumer and subsequently, all consumer threads.
-     */
-    public void shutdownConsumer() {
-        consumer.shutdown();
-        executorService.shutdown();
+        @Override
+        public void handle(T event) throws Exception {
+            wrapped.handle(event);
+        }
+
+        @Override
+        public void setup() throws Exception { }
+
+        @Override
+        public void shutdown() throws Exception { }
     }
 
     private void scheduleReader(final KafkaStream<byte[], byte[]> stream, final BinaryDecoder decoder, final SpecificDatumReader<T> reader) {
@@ -262,7 +424,7 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
      *            The class that was generated from the Avro schema used for
      *            serialization.
      */
-    public interface EventHandler<T> {
+    public static interface EventHandler<T> {
         /**
          * Handle a single incoming message.
          * @param event The deserialized Avro data.
@@ -280,5 +442,29 @@ public final class DivolteKafkaConsumer<T extends SpecificRecord> {
          * @throws Exception In case of failure.
          */
         public void shutdown() throws Exception;
+    }
+
+    /**
+     * Simple form of the {@link EventHandler} without lifecycle methods. This
+     * is useful for consumers that do not need any setup or teardown associated
+     * with event handlers. More over, this allows consumers written in Java 8 to
+     * implement event handlers using lambda syntax.
+     *
+     * In case {@link EventHandler#handle(Object)} throws any uncaught
+     * exception, the consumer thread will discard this event handler instance
+     * and request a new instance from the provided {@link Supplier}. This retry
+     * mechanism is infinite.
+     *
+     * @param <T>
+     *            The class that was generated from the Avro schema used for
+     *            serialization.
+     */
+    public interface SimpleEventHandler<T> {
+        /**
+         * Handle a single incoming message.
+         * @param event The deserialized Avro data.
+         * @throws Exception In case of failure.
+         */
+        public void handle(T event) throws Exception;
     }
 }
