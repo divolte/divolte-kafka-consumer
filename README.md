@@ -5,6 +5,8 @@ Helper class for writing Kafka consumers that process events created by [Divolte
 
 To use the consumer, you need to generate Java code from your Avro schema. See [divolte-examples/avro-schema](https://github.com/divolte/divolte-examples/tree/master/avro-schema) for an example of a project that uses Maven to build a jar with generated code from a schema.
 
+## Usage
+
 Example consumer code:
 ```java
 public class ConsumerExample {
@@ -76,4 +78,24 @@ public class ConsumerExample {
         consumer.startConsumer();
     }
 }
+```
+
+## Build form source
+We use [Gradle](http://www.gradle.org/) as a build tool. You need Java 7 or higher to build.
+
+To build from source on your machine:
+
+```sh
+# cd into your preferred working dir
+git clone https://github.com/divolte/divolte-kafka-consumer.git
+cd divolte-kafka-consumer
+
+# build the source
+./gradlew build
+
+# generate Eclipse project files
+./gradlew eclipse
+
+# install into your local Maven repository
+./gradlew install
 ```
