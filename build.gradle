@@ -20,9 +20,13 @@ apply plugin: 'findbugs'
 apply plugin: 'pmd'
 apply plugin: 'jacoco'
 apply plugin: 'maven'
+if (properties['signing.keyId']) {
+    apply plugin: 'signing'
+}
 
 defaultTasks 'clean', 'build'
 
+group   = 'io.divolte'
 version = '0.1'
 
 sourceCompatibility = 1.7
@@ -30,15 +34,44 @@ compileJava.options.encoding = 'UTF-8'
 
 configure(install.repositories.mavenInstaller) {
     pom.project {
-        groupId 'io.divolte'
-        artifactId 'divolte-kafka-consumer'
+        name 'Divolte Kafka Consumer'
+        description 'Helper for consuming Divolte events from Kafka.'
+        url 'https://github.com/divolte/divolte-kafka-consumer'
         inceptionYear '2014'
-        packaging 'jar'
+        organization {
+            name 'GoDataDriven B.V.'
+            url 'http://godatadriven.com'
+        }
+        scm {
+            connection 'scm:git:git@github.com:divolte/divolte-kafka-consumer.git'
+            developerConnection 'scm:git:git@github.com:divolte/divolte-kafka-consumer.git'
+            url 'git@github.com:divolte/divolte-kafka-consumer.git'
+        }
         licenses {
             license {
                 name 'Apache License, Version 2.0'
                 url 'http://www.apache.org/licenses/LICENSE-2.0.html'
                 distribution 'repo'
+            }
+        }
+        developers {
+            developer {
+                name 'Friso van Vollenhoven'
+                email 'frisovanvollenhoven@godatadriven.com'
+                organization 'GoDataDriven B.V.'
+                organizationUrl 'http://godatadriven.com/'
+            }
+            developer {
+                name 'Andrew Snare'
+                email 'andrewsnare@godatadriven.com'
+                organization 'GoDataDriven B.V.'
+                organizationUrl 'http://godatadriven.com/'
+            }
+            developer {
+                name 'Kris Geusebroek'
+                email 'krisgeusebroek@godatadriven.com'
+                organization 'GoDataDriven B.V.'
+                organizationUrl 'http://godatadriven.com/'
             }
         }
     }
@@ -64,6 +97,12 @@ artifacts {
     archives javadocJar
 }
 
+if (rootProject.properties['signing.keyId']) {
+    signing {
+        sign configurations.archives
+    }
+}
+
 gradle.taskGraph.whenReady { taskGraph ->
     if (!taskGraph.hasTask(':release')) {
         version = version + '-SNAPSHOT'
@@ -73,7 +112,6 @@ gradle.taskGraph.whenReady { taskGraph ->
 tasks.withType(JavaCompile) {
     options.compilerArgs << "-Xlint:deprecation"
 }
-
 
 dependencies {
     compile group: 'com.google.guava', name: 'guava', version: '17.0'
@@ -113,4 +151,46 @@ jacoco {
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.1'
+}
+
+task release {
+    description "Release to OSSRH. (Remember to tag and change the version afterwards.)"
+    group "upload"
+}
+
+if (properties['ossrh.username'] && properties['ossrh.password'] && properties['signing.keyId']) {
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment {
+                    MavenDeployment deployment -> signing.signPom(deployment)
+                }
+
+                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: project.properties['ossrh.username'],
+                                   password: project.properties['ossrh.password'])
+                }
+
+                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: project.properties['ossrh.username'],
+                                   password: project.properties['ossrh.password'])
+                }
+            }
+        }
+    }
+    release.dependsOn clean
+    release.dependsOn check
+    release.dependsOn uploadArchives
+    check.mustRunAfter clean
+    uploadArchives.mustRunAfter check
+    release << {
+        println "Browse to https://oss.sonatype.org/ to finish releasing to OSSRH."
+    }
+} else {
+    uploadArchives << {
+        println "Upload to OSSRH skipped; the 'ossrh.username' and 'ossrh.password' properties are not set."
+    }
+    release << {
+        println "Release not possible; OSSRH and GPG credentials need to be configured."
+    }
 }
