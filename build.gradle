@@ -175,6 +175,8 @@ if (properties['ossrh.username'] && properties['ossrh.password'] && properties['
                     authentication(userName: project.properties['ossrh.username'],
                                    password: project.properties['ossrh.password'])
                 }
+
+                pom = install.repositories.mavenInstaller.pom
             }
         }
     }
