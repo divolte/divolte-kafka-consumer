@@ -27,7 +27,7 @@ if (properties['signing.keyId']) {
 defaultTasks 'clean', 'build'
 
 group   = 'io.divolte'
-version = '0.1'
+version = '0.2'
 
 sourceCompatibility = 1.7
 compileJava.options.encoding = 'UTF-8'
